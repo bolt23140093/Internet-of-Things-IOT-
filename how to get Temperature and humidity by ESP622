@@ -1,0 +1,67 @@
+wifi.setmode(wifi.STATION)
+staCfg={}
+staCfg.ssid="ROG"
+staCfg.pwd="bolt23140093"
+wifi.sta.config(staCfg)
+
+timerWiFi=tmr.create()
+timerWiFi:alarm(1000,tmr.ALARM_AUTO,function()
+  ip,netmask,gateway=wifi.sta.getip()
+  print("ip=",ip)
+  if ip~=nil then
+    tmr.stop(timerWiFi)
+    gpio.mode(7,gpio.INPUT)
+    gpio.mode(4,gpio.OUTPUT)
+    gpio.write(4,gpio.HIGH)
+    temp=0
+    humi=0
+    led=0
+    aValue=0
+    timer0=tmr.create()
+    timer0:alarm(1000,tmr.ALARM_AUTO,function()
+      status,temp,humi,temp_decimial,humi_decimial=dht.read(7)
+      aValue=adc.read(0)
+      print("t=",temp,"h=",humi)
+      print("light=",aValue)
+    end)
+    function setLED(payload)
+      if (payload == "1") then
+        gpio.write(4,gpio.LOW)
+        led=1
+      else 
+        gpio.write(4,gpio.HIGH)
+        led=0
+      end
+      return "led"
+    end
+    deviceInfo = {
+      flags = 0x00000001,
+      classID = 0, 
+      deviceID = 120
+    }
+    
+    function typeID(p)
+      if p~=nil then
+        deviceInfo.deviceID = p
+      end
+      return deviceInfo.deviceID  
+    end
+    
+    function flags(p)
+      if p~=nil then
+        deviceInfo.flags = p
+      end
+      return deviceInfo.flags
+    end
+    
+    __cv = require "C4lab_CoAP210-ob"
+    __cv:startCoapServer(5683)
+    __cv:addActuator("/typeID","typeID")
+    __cv:addActuator("/flags","flags")
+    __cv:addSensor("/121/0/1","temp")
+    __cv:addSensor("/121/0/2","humi")
+    __cv:addActuator("/122/0/201","setLED")
+    __cv:addSensor("/121/0/3","aValue")
+    __cv:postResource()
+  end 
+end)
